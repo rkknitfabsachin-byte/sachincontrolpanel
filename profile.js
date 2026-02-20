@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const hexPreview = document.getElementById('profile-hex-preview');
 
     const updateHexPreview = (val) => {
-        if (/^#[0-9A-F]{6}$/i.test(val)) {
+        if (/^#([0-9A-F]{3}){1,2}$/i.test(val)) {
             hexPreview.style.background = val;
             // Deselect presets
             document.querySelectorAll('#profile-color-options .color-opt').forEach(o => o.classList.remove('active'));
@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Custom hex takes precedence if valid
         const customHex = hexInput?.value.trim();
-        if (customHex && /^#[0-9A-F]{6}$/i.test(customHex)) {
+        if (customHex && /^#([0-9A-F]{3}){1,2}$/i.test(customHex)) {
             profile.accent = customHex;
         } else {
             profile.accent = SCP.getSelectedColor('profile-color-options') || profile.accent;

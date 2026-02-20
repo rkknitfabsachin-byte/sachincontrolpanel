@@ -209,6 +209,18 @@
                     placeholder="ghp_xxxxxxxxxxxx" class="futuristic-input"></div>
             <div class="form-group"><label>Gist ID (Leave empty to create new)</label><input type="text"
                     id="sync-gist-id" placeholder="Will be generated automatically" class="futuristic-input"></div>
+
+            <div id="share-link-container" class="hidden">
+                <div class="form-group">
+                    <label>Your Shareable Link</label>
+                    <div class="share-input-wrap">
+                        <input type="text" id="share-link-input" class="futuristic-input" readonly>
+                        <button class="btn-ghost" id="copy-share-link" title="Copy Link">📋</button>
+                    </div>
+                </div>
+                <p class="info-text small">Use this link on other devices to sync your data.</p>
+            </div>
+
             <div class="modal-actions">
                 <button class="btn-secondary" id="cancel-sync">Cancel</button>
                 <button class="btn-primary" id="save-sync">Enable Sync</button>

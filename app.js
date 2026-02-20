@@ -143,6 +143,21 @@ SCP.toggleTheme = () => {
 // ===== ACCENT COLOR =====
 SCP.applyAccent = (color) => {
     document.documentElement.setAttribute('data-accent', color || 'cyan');
+    if (color && color.startsWith('#')) {
+        // Apply custom hex directly
+        document.documentElement.style.setProperty('--accent', color);
+        // Calculate RGB for transparency support
+        const r = parseInt(color.slice(1, 3), 16);
+        const g = parseInt(color.slice(3, 5), 16);
+        const b = parseInt(color.slice(5, 7), 16);
+        if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+            document.documentElement.style.setProperty('--accent-rgb', `${r}, ${g}, ${b}`);
+        }
+    } else {
+        // Reset manual overrides for presets
+        document.documentElement.style.removeProperty('--accent');
+        document.documentElement.style.removeProperty('--accent-rgb');
+    }
 };
 
 // ===== MODAL HELPERS =====
@@ -433,7 +448,11 @@ SCP.initSync = () => {
             const result = await SCP.syncWithCloud(token, gistId);
             SCP.setData('scp_sync_settings', { token, gistId: result.id });
             alert('Cloud Sync Enabled! Your data is now securely stored in GitHub Gists.');
-            SCP.closeModal('sync-modal');
+
+            // Show share link
+            SCP.updateShareLink(result.id);
+
+            // Note: Keep modal open so user can see/copy the link
             statusDot?.classList.add('online');
             statusDot?.classList.remove('syncing');
         } catch (err) {
@@ -450,6 +469,42 @@ SCP.initSync = () => {
     const settings = SCP.getData('scp_sync_settings', null);
     if (settings && settings.token && settings.gistId) {
         SCP.pullFromCloud(settings.token, settings.gistId);
+        SCP.updateShareLink(settings.gistId);
+    }
+
+    // Check URL for gist ID (Sharing functionality)
+    const hash = window.location.hash;
+    if (hash.startsWith('#gist=')) {
+        const urlGistId = hash.replace('#gist=', '');
+        const currentSettings = SCP.getData('scp_sync_settings', { token: '', gistId: '' });
+        if (currentSettings.gistId !== urlGistId) {
+            document.getElementById('sync-gist-id').value = urlGistId;
+            SCP.openModal('sync-modal');
+            alert('Gist ID loaded from link! Enter your GitHub token to sync.');
+        }
+    }
+
+    // Copy share link logic
+    document.getElementById('copy-share-link')?.addEventListener('click', () => {
+        const inp = document.getElementById('share-link-input');
+        if (inp) {
+            inp.select();
+            document.execCommand('copy');
+            const btn = document.getElementById('copy-share-link');
+            const orig = btn.textContent;
+            btn.textContent = '✅';
+            setTimeout(() => { btn.textContent = orig; }, 2000);
+        }
+    });
+};
+
+SCP.updateShareLink = (gistId) => {
+    const container = document.getElementById('share-link-container');
+    const input = document.getElementById('share-link-input');
+    if (container && input && gistId) {
+        const base = window.location.href.split('#')[0];
+        input.value = `${base}#gist=${gistId}`;
+        container.classList.remove('hidden');
     }
 };
 
@@ -497,6 +552,13 @@ SCP.pullFromCloud = async (token, gistId) => {
         if (SCP.currentPanel === 'files') SCP.renderFiles();
         if (SCP.currentPanel === 'calendar') SCP.renderCalendar();
         if (SCP.currentPanel === 'tasks') SCP.renderTasks();
+        if (SCP.currentPanel === 'profile') SCP.renderProfile();
+
+        // Apply profile theme/accent immediately
+        const p = content['scp_profile'] ? JSON.parse(content['scp_profile']) : {};
+        if (p.theme) SCP.applyTheme(p.theme);
+        if (p.accent) SCP.applyAccent(p.accent);
+        SCP.updateSidebarProfile(p);
     } catch (e) {
         console.error(e);
         statusDot?.classList.add('error');
