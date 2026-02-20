@@ -109,7 +109,7 @@ SCP.navigateTo = (panelId) => {
     if (target) target.classList.add('active');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.querySelectorAll(`[data-panel="${panelId}"]`).forEach(n => { if (n.classList.contains('nav-item')) n.classList.add('active'); });
-    const labels = { dashboard: 'Dashboard', files: 'Files', calendar: 'Calendar', tasks: 'Tasks', profile: 'Profile' };
+    const labels = { dashboard: 'Dashboard', files: 'Files', calendar: 'Calendar', tasks: 'Tasks', profile: 'Profile', notes: 'Notes Corner', calculator: 'Calculator', tools: 'Tools', snake: 'Snake Game' };
     const bc = document.getElementById('breadcrumb');
     if (bc) bc.textContent = labels[panelId] || panelId;
     SCP.currentPanel = panelId;
@@ -118,6 +118,10 @@ SCP.navigateTo = (panelId) => {
     if (panelId === 'calendar') SCP.renderCalendar && SCP.renderCalendar();
     if (panelId === 'tasks') SCP.renderTasks && SCP.renderTasks();
     if (panelId === 'profile') SCP.renderProfile && SCP.renderProfile();
+    if (panelId === 'notes') SCP.renderNotes && SCP.renderNotes();
+    if (panelId === 'calculator') SCP.initCalculator && SCP.initCalculator();
+    if (panelId === 'tools') SCP.initTools && SCP.initTools();
+    if (panelId === 'snake') SCP.initSnake && SCP.initSnake();
 };
 
 // ===== THEME =====
@@ -378,6 +382,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Color options init
     ['setup-color-options', 'file-color-options', 'folder-color-options', 'event-color-options', 'profile-color-options'].forEach(SCP.initColorOptions);
+
+    // Sync Logic Init
+    SCP.initSync();
 });
 
 // ===== SIDEBAR PROFILE UPDATER =====
@@ -395,4 +402,113 @@ SCP.updateSidebarProfile = (profile) => {
         else { avatar.textContent = (profile.name || 'S')[0].toUpperCase(); }
     }
     SCP.applyAccent(profile.accent || 'cyan');
+};
+
+// ===== CLOUD SYNC LOGIC (Gist Based) =====
+SCP.initSync = () => {
+    const syncBtn = document.getElementById('nav-sync-btn');
+    const saveSync = document.getElementById('save-sync');
+    const cancelSync = document.getElementById('cancel-sync');
+    const statusDot = document.getElementById('sync-status');
+
+    syncBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        const settings = SCP.getData('scp_sync_settings', { token: '', gistId: '' });
+        document.getElementById('sync-token-input').value = settings.token;
+        document.getElementById('sync-gist-id').value = settings.gistId;
+        SCP.openModal('sync-modal');
+    });
+
+    cancelSync?.addEventListener('click', () => SCP.closeModal('sync-modal'));
+
+    saveSync?.addEventListener('click', async () => {
+        const token = document.getElementById('sync-token-input').value.trim();
+        const gistId = document.getElementById('sync-gist-id').value.trim();
+        if (!token) { alert('Please enter a GitHub Token.'); return; }
+
+        statusDot?.classList.add('syncing');
+        saveSync.textContent = 'Connecting...';
+
+        try {
+            const result = await SCP.syncWithCloud(token, gistId);
+            SCP.setData('scp_sync_settings', { token, gistId: result.id });
+            alert('Cloud Sync Enabled! Your data is now securely stored in GitHub Gists.');
+            SCP.closeModal('sync-modal');
+            statusDot?.classList.add('online');
+            statusDot?.classList.remove('syncing');
+        } catch (err) {
+            console.error(err);
+            alert('Sync failed. Check your token scope (must have "gist").');
+            statusDot?.classList.add('error');
+            statusDot?.classList.remove('syncing');
+        } finally {
+            saveSync.textContent = 'Enable Sync';
+        }
+    });
+
+    // Auto-sync check on load
+    const settings = SCP.getData('scp_sync_settings', null);
+    if (settings && settings.token && settings.gistId) {
+        SCP.pullFromCloud(settings.token, settings.gistId);
+    }
+};
+
+SCP.syncWithCloud = async (token, gistId = '') => {
+    const keys = ['scp_profile', 'scp_files', 'scp_folders', 'scp_tasks', 'scp_events', 'scp_holidays'];
+    const data = {};
+    keys.forEach(k => data[k] = localStorage.getItem(k));
+
+    const method = gistId ? 'PATCH' : 'POST';
+    const url = gistId ? `https://api.github.com/gists/${gistId}` : 'https://api.github.com/gists';
+
+    const response = await fetch(url, {
+        method,
+        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            description: "Sachin's Control Panel Sync Data",
+            public: false,
+            files: { 'scp_data.json': { content: JSON.stringify(data) } }
+        })
+    });
+
+    if (!response.ok) throw new Error('GitHub API Error');
+    return await response.json();
+};
+
+SCP.pullFromCloud = async (token, gistId) => {
+    const statusDot = document.getElementById('sync-status');
+    statusDot?.classList.add('syncing');
+    try {
+        const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+            headers: { 'Authorization': `token ${token}` }
+        });
+        const gist = await response.json();
+        const content = JSON.parse(gist.files['scp_data.json'].content);
+
+        Object.keys(content).forEach(key => {
+            if (content[key]) localStorage.setItem(key, content[key]);
+        });
+
+        statusDot?.classList.add('online');
+        statusDot?.classList.remove('syncing');
+
+        // Refresh Current Panel logic
+        if (SCP.currentPanel === 'dashboard') SCP.refreshDashboard();
+        if (SCP.currentPanel === 'files') SCP.renderFiles();
+        if (SCP.currentPanel === 'calendar') SCP.renderCalendar();
+        if (SCP.currentPanel === 'tasks') SCP.renderTasks();
+    } catch (e) {
+        console.error(e);
+        statusDot?.classList.add('error');
+    }
+};
+
+// Deep sync for setData
+const _originalSetData = SCP.setData;
+SCP.setData = (key, val) => {
+    _originalSetData(key, val);
+    const settings = SCP.getData('scp_sync_settings', null);
+    if (settings && settings.token && settings.gistId && key.startsWith('scp_')) {
+        SCP.syncWithCloud(settings.token, settings.gistId).catch(() => { });
+    }
 };

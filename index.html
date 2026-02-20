@@ -85,7 +85,18 @@
             <div class="form-group"><label>Folder Name</label><input type="text" id="folder-name-input"
                     placeholder="e.g. Work Projects" class="futuristic-input"></div>
             <div class="form-group">
-                <label>Color</label>
+                <label>Folder Cover Image (Optional)</label>
+                <div class="folder-image-picker">
+                    <input type="text" id="folder-image-url" placeholder="Paste image URL..." class="futuristic-input">
+                    <span class="or-divider">OR</span>
+                    <label class="btn-ghost full-width" for="folder-image-upload">
+                        <i class="ph-bold ph-image"></i> Upload Cover
+                        <input type="file" id="folder-image-upload" accept="image/*" hidden>
+                    </label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Theme Color</label>
                 <div class="color-options" id="folder-color-options">
                     <div class="color-opt active" data-color="#00f5ff"></div>
                     <div class="color-opt" data-color="#a855f7"></div>
@@ -184,6 +195,27 @@
         </div>
     </div>
 
+    <!-- ===== CLOUD SYNC MODAL ===== -->
+    <div id="sync-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <h2 class="modal-title"><i class="ph-duotone ph-cloud-arrow-up"></i> Cloud Sync Settings</h2>
+            <p class="modal-sub">Enable this to access your files from any device via your custom link.</p>
+            <div class="info-box">
+                <p>1. Create a <a href="https://github.com/settings/tokens" target="_blank" class="link">GitHub Personal
+                        Access Token</a> (select 'gist' scope).</p>
+                <p>2. Paste the token below to automatically sync your dashboard data.</p>
+            </div>
+            <div class="form-group"><label>GitHub Token</label><input type="password" id="sync-token-input"
+                    placeholder="ghp_xxxxxxxxxxxx" class="futuristic-input"></div>
+            <div class="form-group"><label>Gist ID (Leave empty to create new)</label><input type="text"
+                    id="sync-gist-id" placeholder="Will be generated automatically" class="futuristic-input"></div>
+            <div class="modal-actions">
+                <button class="btn-secondary" id="cancel-sync">Cancel</button>
+                <button class="btn-primary" id="save-sync">Enable Sync</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ===== RENAME MODAL ===== -->
     <div id="rename-modal" class="modal-overlay hidden">
         <div class="modal-card">
@@ -275,6 +307,26 @@
                 <a class="nav-item" data-panel="profile" href="#">
                     <i class="ph-duotone ph-user-circle nav-icon"></i><span class="nav-label">Profile</span>
                     <div class="nav-indicator"></div>
+                </a>
+                <a class="nav-item" data-panel="notes" href="#">
+                    <i class="ph-duotone ph-notebook nav-icon"></i><span class="nav-label">Notes</span>
+                    <div class="nav-indicator"></div>
+                </a>
+                <a class="nav-item" data-panel="calculator" href="#">
+                    <i class="ph-duotone ph-calculator nav-icon"></i><span class="nav-label">Calculator</span>
+                    <div class="nav-indicator"></div>
+                </a>
+                <a class="nav-item" data-panel="tools" href="#">
+                    <i class="ph-duotone ph-timer nav-icon"></i><span class="nav-label">Tools</span>
+                    <div class="nav-indicator"></div>
+                </a>
+                <a class="nav-item" data-panel="snake" href="#">
+                    <i class="ph-duotone ph-game-controller nav-icon"></i><span class="nav-label">Snake</span>
+                    <div class="nav-indicator"></div>
+                </a>
+                <a class="nav-item sync-nav-item" id="nav-sync-btn" href="#">
+                    <i class="ph-duotone ph-cloud-arrow-up nav-icon"></i><span class="nav-label">Cloud Sync</span>
+                    <div class="sync-status-dot" id="sync-status"></div>
                 </a>
             </nav>
 
@@ -490,6 +542,14 @@
                                     <div class="color-opt" data-color="orange" style="background:#f59e0b"></div>
                                     <div class="color-opt" data-color="red" style="background:#ef4444"></div>
                                 </div>
+                                <div class="custom-color-zone">
+                                    <label>Or Custom Hex</label>
+                                    <div class="color-input-wrap">
+                                        <input type="text" id="profile-custom-hex" class="futuristic-input hex-input"
+                                            placeholder="#00F5FF" maxlength="7">
+                                        <div class="color-preview-circle" id="profile-hex-preview"></div>
+                                    </div>
+                                </div>
                             </div>
                             <button class="btn-primary" id="save-profile-btn"><i class="ph-bold ph-floppy-disk"></i>
                                 Save Changes</button>
@@ -511,6 +571,165 @@
                 </div>
             </section>
 
+            <!-- ===== NOTES PANEL ===== -->
+            <section class="panel" id="panel-notes">
+                <div class="panel-header">
+                    <h2 class="panel-title"><i class="ph-duotone ph-notebook"></i> Notes</h2>
+                    <button class="btn-action" id="new-note-btn"><i class="ph-bold ph-plus"></i> New Note</button>
+                </div>
+                <div class="notes-layout">
+                    <div class="notes-sidebar">
+                        <div id="notes-list" class="notes-list"></div>
+                    </div>
+                    <div class="note-editor-area hidden" id="note-editor-area">
+                        <div class="note-editor-toolbar">
+                            <button class="btn-ghost small" id="note-pin-btn"><i class="ph-bold ph-push-pin"></i>
+                                Pin</button>
+                            <span id="note-word-count" class="note-wc"></span>
+                            <button class="btn-ghost small danger" id="delete-note-btn"><i class="ph-bold ph-trash"></i>
+                                Delete</button>
+                        </div>
+                        <input type="text" id="note-editor-title" class="note-title-input" placeholder="Note title...">
+                        <textarea id="note-editor-content" class="note-content-textarea"
+                            placeholder="Write your ideas, thoughts, or important info here..."></textarea>
+                    </div>
+                    <div class="note-welcome" id="note-welcome">
+                        <i class="ph-duotone ph-notebook-text" style="font-size:64px;color:var(--text-dim)"></i>
+                        <p>Select a note or create a new one</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== CALCULATOR PANEL ===== -->
+            <section class="panel" id="panel-calculator">
+                <div class="panel-header">
+                    <h2 class="panel-title"><i class="ph-duotone ph-calculator"></i> Calculator</h2>
+                </div>
+                <div class="calc-layout">
+                    <div class="calc-main">
+                        <div class="calc-screen">
+                            <div class="calc-subdisplay" id="calc-subdisplay"></div>
+                            <div class="calc-display" id="calc-display">0</div>
+                        </div>
+                        <div class="calc-grid">
+                            <button class="calc-btn span2 function" data-action="clear">AC</button>
+                            <button class="calc-btn function" data-action="negate">+/-</button>
+                            <button class="calc-btn operator" data-val="÷">÷</button>
+                            <button class="calc-btn" data-val="7">7</button>
+                            <button class="calc-btn" data-val="8">8</button>
+                            <button class="calc-btn" data-val="9">9</button>
+                            <button class="calc-btn operator" data-val="×">×</button>
+                            <button class="calc-btn" data-val="4">4</button>
+                            <button class="calc-btn" data-val="5">5</button>
+                            <button class="calc-btn" data-val="6">6</button>
+                            <button class="calc-btn operator" data-val="-">-</button>
+                            <button class="calc-btn" data-val="1">1</button>
+                            <button class="calc-btn" data-val="2">2</button>
+                            <button class="calc-btn" data-val="3">3</button>
+                            <button class="calc-btn operator" data-val="+">+</button>
+                            <button class="calc-btn function" data-val="(">(</button>
+                            <button class="calc-btn" data-val="0">0</button>
+                            <button class="calc-btn function" data-val=")">)</button>
+                            <button class="calc-btn equals" data-action="equals">=</button>
+                            <button class="calc-btn function" data-val=".">.</button>
+                            <button class="calc-btn function" data-action="percent">%</button>
+                            <button class="calc-btn function" data-action="backspace"><i
+                                    class="ph-bold ph-backspace"></i></button>
+                            <button class="calc-btn accent" data-action="save"><i
+                                    class="ph-bold ph-bookmark-simple"></i></button>
+                        </div>
+                    </div>
+                    <div class="calc-saves-panel">
+                        <h3 class="saves-title"><i class="ph-duotone ph-bookmarks-simple"></i> Saved Calculations</h3>
+                        <div id="saved-calcs-list" class="saved-calcs-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== TOOLS PANEL ===== -->
+            <section class="panel" id="panel-tools">
+                <div class="panel-header">
+                    <h2 class="panel-title"><i class="ph-duotone ph-timer"></i> Tools</h2>
+                </div>
+                <div class="tools-tabs">
+                    <button class="tools-tab active" data-tool="stopwatch"><i class="ph-bold ph-stopwatch"></i>
+                        Stopwatch</button>
+                    <button class="tools-tab" data-tool="timer"><i class="ph-bold ph-timer"></i> Timer</button>
+                </div>
+                <div class="tools-pane" id="tools-pane-stopwatch">
+                    <div class="big-timer-display" id="sw-display">00:00.00</div>
+                    <div class="timer-controls">
+                        <button class="btn-action" id="sw-start"><i class="ph-bold ph-play"></i> Start</button>
+                        <button class="btn-action" id="sw-lap"><i class="ph-bold ph-flag"></i> Lap</button>
+                        <button class="btn-secondary" id="sw-reset"><i class="ph-bold ph-arrow-clockwise"></i>
+                            Reset</button>
+                    </div>
+                    <div class="laps-list" id="sw-laps"></div>
+                </div>
+                <div class="tools-pane hidden" id="tools-pane-timer">
+                    <div class="timer-set">
+                        <div class="time-input-group"><input type="number" id="th" class="time-seg-input" value="0"
+                                min="0" max="23"><label>H</label></div>
+                        <span class="time-sep">:</span>
+                        <div class="time-input-group"><input type="number" id="tm" class="time-seg-input" value="0"
+                                min="0" max="59"><label>M</label></div>
+                        <span class="time-sep">:</span>
+                        <div class="time-input-group"><input type="number" id="ts" class="time-seg-input" value="0"
+                                min="0" max="59"><label>S</label></div>
+                    </div>
+                    <div class="timer-ring-wrap">
+                        <svg width="220" height="220" viewBox="0 0 200 200">
+                            <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(255,255,255,0.06)"
+                                stroke-width="8" />
+                            <circle id="timer-ring" cx="100" cy="100" r="90" fill="none" stroke="var(--accent)"
+                                stroke-width="8" stroke-linecap="round" transform="rotate(-90 100 100)" />
+                        </svg>
+                        <div class="big-timer-display timer-ring-label" id="timer-display">00:00</div>
+                    </div>
+                    <div class="timer-controls">
+                        <button class="btn-action" id="timer-start"><i class="ph-bold ph-play"></i> Start</button>
+                        <button class="btn-secondary" id="timer-reset"><i class="ph-bold ph-arrow-clockwise"></i>
+                            Reset</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== SNAKE PANEL ===== -->
+            <section class="panel" id="panel-snake">
+                <div class="panel-header">
+                    <h2 class="panel-title"><i class="ph-duotone ph-game-controller"></i> Snake</h2>
+                    <div class="snake-stats">
+                        <span>Score: <strong id="snake-score">0</strong></span>
+                        <span class="snake-lvl-badge" id="snake-level-name">Beginner</span>
+                    </div>
+                </div>
+                <div class="snake-layout">
+                    <div class="snake-game-wrap">
+                        <canvas id="snake-canvas" width="400" height="400" tabindex="0"></canvas>
+                        <div class="snake-start-screen" id="snake-start-screen">
+                            <h3>Select Difficulty</h3>
+                            <div class="snake-level-btns" id="snake-level-btns"></div>
+                            <button class="btn-primary" id="snake-play-btn"><i class="ph-bold ph-play"></i> Start
+                                Game</button>
+                        </div>
+                        <button class="btn-primary hidden" id="restart-snake-btn"
+                            style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%)"><i
+                                class="ph-bold ph-arrow-clockwise"></i> Restart</button>
+                    </div>
+                    <div class="snake-side">
+                        <div class="snake-info-card">
+                            <h4><i class="ph-duotone ph-keyboard"></i> Controls</h4>
+                            <p>Arrow Keys / WASD</p>
+                            <p>Space to restart</p>
+                        </div>
+                        <div class="snake-info-card">
+                            <h4><i class="ph-duotone ph-trophy"></i> High Scores</h4>
+                            <div id="snake-hiscores"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
         </main>
     </div>
 
@@ -521,6 +740,10 @@
     <script src="calendar.js"></script>
     <script src="tasks.js"></script>
     <script src="search.js"></script>
+    <script src="notes.js"></script>
+    <script src="calculator.js"></script>
+    <script src="tools.js"></script>
+    <script src="snake.js"></script>
 </body>
 
 </html>

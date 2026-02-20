@@ -18,9 +18,19 @@ const dbSaveMedia = async (record) => {
     const db = await openMediaDB();
     return new Promise((res, rej) => {
         const tx = db.transaction(MEDIA_STORE, 'readwrite');
-        tx.objectStore(MEDIA_STORE).add(record);
+        tx.objectStore(MEDIA_STORE).put(record);
         tx.oncomplete = res;
         tx.onerror = () => rej(tx.error);
+    });
+};
+
+const dbGetMediaFile = async (id) => {
+    const db = await openMediaDB();
+    return new Promise((res, rej) => {
+        const tx = db.transaction(MEDIA_STORE, 'readonly');
+        const req = tx.objectStore(MEDIA_STORE).get(id);
+        req.onsuccess = () => res(req.result);
+        req.onerror = () => rej(req.error);
     });
 };
 
@@ -97,9 +107,12 @@ SCP.renderDriveFiles = async () => {
     const label = document.getElementById('drive-files-label');
     if (!grid) return;
     try {
-        const records = await dbGetAllMedia();
+        let records = await dbGetAllMedia();
+        // Only show root files in the main drive panel
+        records = records.filter(r => !r.folderId);
+
         if (records.length === 0) {
-            grid.innerHTML = '<p class="empty-text media-empty-text">No media files yet — drop files above to add them</p>';
+            grid.innerHTML = '<p class="empty-text media-empty-text">No unorganized media — check your Folders</p>';
             if (label) label.style.display = 'none';
             return;
         }
@@ -137,7 +150,10 @@ SCP.renderDriveFiles = async () => {
           <div class="media-name" title="${rec.name}">${rec.name}</div>
           <div class="media-meta">
             <span class="media-size">${sizeStr}</span>
-            <button class="media-del" onclick="SCP.deleteMediaFile('${rec.id}')"><i class="ph-bold ph-trash"></i></button>
+            <div class="media-actions">
+                <button class="media-move" onclick="SCP.moveMediaToFolder('${rec.id}')" title="Move to folder"><i class="ph-bold ph-folder"></i></button>
+                <button class="media-del" onclick="SCP.deleteMediaFile('${rec.id}')"><i class="ph-bold ph-trash"></i></button>
+            </div>
           </div>
         </div>`;
             // Click to open
@@ -153,6 +169,28 @@ SCP.renderDriveFiles = async () => {
         grid.innerHTML = '<p class="empty-text">Error loading media</p>';
         console.error(e);
     }
+};
+
+SCP.moveMediaToFolder = (fileId) => {
+    SCP._moveMediaId = fileId;
+    const folders = SCP.getData('scp_folders', []);
+    const list = document.getElementById('move-folder-list');
+    if (!list) return;
+    list.innerHTML = '<div class="move-folder-opt" data-id="">📭 No Folder (Root)</div>' +
+        folders.map(f => `<div class="move-folder-opt" data-id="${f.id}">📁 ${f.name}</div>`).join('');
+    list.querySelectorAll('.move-folder-opt').forEach(opt => {
+        opt.addEventListener('click', async () => {
+            const rec = await dbGetMediaFile(SCP._moveMediaId);
+            if (rec) {
+                rec.folderId = opt.dataset.id || null;
+                await dbSaveMedia(rec);
+            }
+            SCP.closeModal('move-modal');
+            SCP.renderDriveFiles();
+            SCP.renderFiles();
+        });
+    });
+    SCP.openModal('move-modal');
 };
 
 // ===== Media Player Lightbox =====

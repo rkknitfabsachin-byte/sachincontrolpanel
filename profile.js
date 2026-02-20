@@ -40,6 +40,25 @@ document.addEventListener('DOMContentLoaded', () => {
         SCP.refreshDashboard && SCP.refreshDashboard();
     });
 
+    // ===== CUSTOM COLOR PICKER LOGIC =====
+    const hexInput = document.getElementById('profile-custom-hex');
+    const hexPreview = document.getElementById('profile-hex-preview');
+
+    const updateHexPreview = (val) => {
+        if (/^#[0-9A-F]{6}$/i.test(val)) {
+            hexPreview.style.background = val;
+            // Deselect presets
+            document.querySelectorAll('#profile-color-options .color-opt').forEach(o => o.classList.remove('active'));
+        }
+    };
+
+    hexInput?.addEventListener('input', (e) => {
+        let val = e.target.value;
+        if (val && !val.startsWith('#')) val = '#' + val;
+        e.target.value = val;
+        updateHexPreview(val);
+    });
+
     // ===== PROFILE PANEL RENDER =====
     SCP.renderProfile = () => {
         const profile = SCP.getData('scp_profile', {});
@@ -53,7 +72,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (profile.avatar) avatarEl.innerHTML = `<img src="${profile.avatar}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
             else avatarEl.textContent = (profile.name || 'S')[0].toUpperCase();
         }
-        SCP.setActiveColor('profile-color-options', profile.accent || 'cyan');
+
+        // Handle preset or custom color
+        if (profile.accent && profile.accent.startsWith('#')) {
+            if (hexInput) hexInput.value = profile.accent;
+            if (hexPreview) hexPreview.style.background = profile.accent;
+            document.querySelectorAll('#profile-color-options .color-opt').forEach(o => o.classList.remove('active'));
+        } else {
+            SCP.setActiveColor('profile-color-options', profile.accent || 'cyan');
+            if (hexInput) hexInput.value = '';
+            if (hexPreview) hexPreview.style.background = 'transparent';
+        }
 
         // Stats
         const files = SCP.getData('scp_files', []);
@@ -89,7 +118,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const profile = SCP.getData('scp_profile', {});
         profile.name = document.getElementById('profile-name-input')?.value.trim() || profile.name;
         profile.tagline = document.getElementById('profile-tagline-input')?.value.trim() || profile.tagline;
-        profile.accent = SCP.getSelectedColor('profile-color-options') || profile.accent;
+
+        // Custom hex takes precedence if valid
+        const customHex = hexInput?.value.trim();
+        if (customHex && /^#[0-9A-F]{6}$/i.test(customHex)) {
+            profile.accent = customHex;
+        } else {
+            profile.accent = SCP.getSelectedColor('profile-color-options') || profile.accent;
+        }
+
         if (profileAvatarData) profile.avatar = profileAvatarData;
         SCP.setData('scp_profile', profile);
         SCP.updateSidebarProfile(profile);
